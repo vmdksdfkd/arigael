@@ -1,9 +1,7 @@
-
 import pandas as pd
 import requests
 import streamlit as st
 
-# ID de tu producto publicado en Gumroad
 GUMROAD_PRODUCT_ID = "jgulbh"
 
 
@@ -17,39 +15,37 @@ def verificar_licencia_gumroad(license_key):
             if res.get("success"):
                 variante = res.get("purchase", {}).get(
                     "variant_name", "Semipro"
-...                 )
-...                 return True, variante
-...     except Exception:
-...         pass
-...     return False, None
-... 
-... 
-... # --- CONFIGURACIÓN DE LA PÁGINA STREAMLIT ---
-... st.set_page_config(page_title="ARIGAEL Terminal", layout="wide")
-... 
-... st.sidebar.title("ARIGAEL Terminal")
-... st.sidebar.write("---")
-... 
-... # Control de Licencia en la barra lateral
-... licencia_input = st.sidebar.text_input(
-...     "Clave de Licencia Gumroad", type="password"
-... )
-... 
-... if licencia_input:
-...     es_valida, plan = verificar_licencia_gumroad(licencia_input)
-...     if es_valida:
-...         st.sidebar.success(f"Licencia Activa: {plan}")
-...         st.title("Bienvenido a ARIGAEL Terminal")
-...         st.write(
-...             f"Acceso concedido para el plan **{plan}**. Aquí se desplegarán las herramientas de análisis financiero."
-...         )
-...         # Aquí irá el resto de tu plataforma interactiva
-...     else:
-...         st.sidebar.error("Licencia inválida o expirada.")
-...         st.warning(
-...             "Por favor, ingresa una clave de licencia válida adquirida en Gumroad para desbloquear la plataforma."
-...         )
-... else:
-...     st.title("ARIGAEL Terminal")
-...     st.info(
-...         "Por favor, ingresa tu Clave de Licencia en la barra lateral izquierda para acceder."
+                )
+                return True, variante
+    except Exception:
+        pass
+    return False, None
+
+
+st.set_page_config(page_title="ARIGAEL Terminal", layout="wide")
+
+st.sidebar.title("ARIGAEL Terminal")
+st.sidebar.write("---")
+
+licencia_input = st.sidebar.text_input(
+    "Clave de Licencia Gumroad", type="password"
+)
+
+if licencia_input:
+    es_valida, plan = verificar_licencia_gumroad(licencia_input)
+    if es_valida:
+        st.sidebar.success(f"Licencia Activa: {plan}")
+        st.title("Bienvenido a ARIGAEL Terminal")
+        st.write(
+            f"Acceso concedido para el plan **{plan}**. Plataforma lista para análisis."
+        )
+    else:
+        st.sidebar.error("Licencia inválida o expirada.")
+        st.warning(
+            "Por favor, ingresa una clave de licencia válida adquirida en Gumroad."
+        )
+else:
+    st.title("ARIGAEL Terminal")
+    st.info(
+        "Por favor, ingresa tu Clave de Licencia en la barra lateral izquierda para acceder."
+    )
