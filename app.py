@@ -72,6 +72,20 @@ with st.sidebar:
                 st.error("Clave inválida, no encontrada o reembolsada.")
     else:
         st.success("🟢 Licencia PRO Activa")
+      
+# =============================================================================
+# CANDADO REAL: detiene la app aquí si no hay licencia activa
+# =============================================================================
+if not st.session_state.get("licencia_activa", False):
+    st.title("🔒 Semáforo de Inversión y Simulador — Versión Semipro")
+    st.warning(
+        "⚠️ Necesitas una licencia válida para usar esta herramienta. "
+        "Ingresa tu clave en la barra lateral izquierda para continuar."
+    )
+    st.info(
+        "¿No tienes clave? Consíguela en tu página de producto de Gumroad."
+    )
+    st.stop()
 """
 ========
  SEMÁFORO DE INVERSIÓN Y SIMULADOR EN VIVO (PAPER TRADING) - VERSIÓN SEMIPRO
