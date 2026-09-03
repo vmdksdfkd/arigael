@@ -7,14 +7,16 @@ def verificar_licencia_gumroad(clave_de_licencia):
     if clave_de_licencia.strip() == "ADMIN123":
         return True, "Administrador"
 
-   payload = {
-    "license_key": clave_de_licencia.strip(),
-    "access_token": "9-QRpbNFeqcdYpB6uqG9D74ZL_mM4LHhQU_vZDwKG_Q"
-}
+    url = "https://api.gumroad.com/v2/licenses/verify"
+    payload = {
+        "license_key": clave_de_licencia.strip(),
+        "access_token": "9-QRpbNFeqcdYpB6uqG9D74ZL_mM4LHhQU_vZDwKG_Q"
+    }
+
     try:
         response = requests.post(url, data=payload, timeout=10)
         res = response.json()
-        
+
         # Confirma que la compra existe y no ha sido reembolsada
         if response.status_code == 200 and res.get("success"):
             purchase_info = res.get("purchase", {})
