@@ -3,19 +3,27 @@ import requests
 import streamlit as st
 
 def verificar_licencia_gumroad(clave_de_licencia):
+    # Clave maestra para ti como administrador
+    if clave_de_licencia.strip() == "ADMIN123":
+        return True, "Administrador"
+
     url = "https://api.gumroad.com/v2/licenses/verify"
-    payload = {"product_permalink": "jgulbh", "license_key": clave_de_licencia}
-    
+    payload = {
+        "license_key": clave_de_licencia.strip()
+    }
     try:
-        response = requests.post(url, data=payload)
-        if response.status_code == 200:
-            res = response.json()
-            if res.get("success"):
-                variant = res.get("purchase", {}).get("variant_name", "Semiprofesional")
-                return True, variant
+        response = requests.post(url, data=payload, timeout=10)
+        res = response.json()
+        
+        # Confirma que la compra existe y no ha sido reembolsada
+        if response.status_code == 200 and res.get("success"):
+            purchase_info = res.get("purchase", {})
+            if not purchase_info.get("refunded", False):
+                variante = purchase_info.get("variant_name") or "Acceso Valido"
+                return True, variante
+        return False, None
     except Exception:
-        pass
-    return False, None
+        return False, None
 
 st.set_page_config(page_title="Terminal ARIGAEL", layout="wide")
 
