@@ -4,7 +4,7 @@ import streamlit as st
 
 def verificar_licencia_gumroad(clave_de_licencia):
     url = "https://api.gumroad.com/v2/licenses/verify"
-    payload = {"license_key": clave_de_licencia}
+    payload = {"product_permalink": "jgulbh", "license_key": clave_de_licencia}
     
     try:
         response = requests.post(url, data=payload)
