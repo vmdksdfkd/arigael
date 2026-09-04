@@ -17,24 +17,17 @@ def validar_licencia_gumroad(license_key: str) -> bool:
     """Verifica si la clave ingresada por el usuario es válida en Gumroad."""
     url = "https://api.gumroad.com/v2/licenses/verify"
     payload = {
-        "product_permalink": "jgulbh",
+        "product_id": "90wXizqYUDaV85t9R5Tb1Q==",  # Gumroad lo pidió así para este producto
         "license_key": license_key.strip(),
         "increment_uses_count": "false"
     }
     try:
         response = requests.post(url, data=payload, timeout=5)
         res_data = response.json()
-
-        # --- DIAGNÓSTICO TEMPORAL: bórralo cuando ya funcione ---
-        st.sidebar.write("🔧 DEBUG — status:", response.status_code)
-        st.sidebar.write("🔧 DEBUG — respuesta:", res_data)
-        # ---------------------------------------------------------
-
         return res_data.get("success", False) and not res_data.get(
             "purchase", {}
         ).get("refunded", False)
-    except Exception as e:
-        st.sidebar.write("🔧 DEBUG — excepción:", str(e))
+    except Exception:
         return False
 # =============================================================================
 # CONFIGURACIÓN GENERAL DE LA PÁGINA Y ESTILOS
