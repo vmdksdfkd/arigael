@@ -57,13 +57,34 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-LOG_FILE = "bitacora_decisiones.csv"
-SIMULADOR_FILE = "mi_portafolio_simulador.json"
-DCA_FILE = "dca_reminder.json"
+# =============================================================================
+# CONFIGURACIÓN SEGURA: claves fuera del código fuente
+# =============================================================================
+CARPETA_DATOS_USUARIOS = "data_usuarios"
+os.makedirs(CARPETA_DATOS_USUARIOS, exist_ok=True)
 
 # SEC EDGAR requiere un User-Agent identificable con contacto real (política de uso justo).
 # CAMBIA esto por tu nombre/producto y un correo real antes de publicar.
 SEC_USER_AGENT = "Arigael Terminal contacto@tudominio.com"
+
+
+def obtener_admin_key():
+    """
+    Lee la clave maestra desde st.secrets (Streamlit Cloud) o una variable de
+    entorno (uso local) — NUNCA desde el código fuente. Si no está configurada
+    en ningún lado, el acceso de administrador queda simplemente deshabilitado
+    (no hay una clave por defecto insegura).
+    """
+    try:
+        clave = st.secrets.get("ADMIN_KEY")
+        if clave:
+            return clave
+    except Exception:
+        pass
+    return os.environ.get("ARIGAEL_ADMIN_KEY")
+
+
+ADMIN_KEY = obtener_admin_key()
 
 
 # =============================================================================
@@ -87,6 +108,16 @@ def validar_licencia_gumroad(license_key: str) -> bool:
         return False
 
 
+def generar_id_usuario(clave: str) -> str:
+    """
+    Convierte la clave de licencia en un identificador corto y no reversible,
+    para poder aislar los archivos de datos (portafolio, bitácora, DCA) de
+    cada cliente sin guardar su clave real en ningún nombre de archivo.
+    """
+    import hashlib
+    return hashlib.sha256(clave.strip().encode()).hexdigest()[:16]
+
+
 with st.sidebar:
     st.markdown("### 🔑 Licencia del Sistema")
 
@@ -102,14 +133,17 @@ with st.sidebar:
         )
 
         if st.button("Activar Licencia", use_container_width=True):
-            # Clave maestra personal (para que tú entres siempre gratis)
-            if clave_ingresada.strip() == "ADMIN123":
+            # Clave maestra personal — se lee de st.secrets/variable de entorno,
+            # NUNCA queda escrita en el código fuente (ver obtener_admin_key()).
+            if ADMIN_KEY and clave_ingresada.strip() == ADMIN_KEY:
                 st.session_state["licencia_activa"] = True
+                st.session_state["id_usuario"] = "admin"
                 st.success("Licencia de Administrador Activada")
                 st.rerun()
             # Validación real con el servidor de Gumroad para el cliente
             elif validar_licencia_gumroad(clave_ingresada):
                 st.session_state["licencia_activa"] = True
+                st.session_state["id_usuario"] = generar_id_usuario(clave_ingresada)
                 st.success("¡Licencia Validada Correctamente!")
                 st.rerun()
             else:
@@ -153,7 +187,31 @@ if not st.session_state["disclaimer_visto"]:
 3. **Ningún resultado pasado —incluido el historial de precisión que puedes consultar aquí—
    garantiza resultados futuros.** Úsalo para aprender y organizar tu análisis, no como
    una promesa de ganancias.
+
+4. **Tu portafolio simulado, bitácora y recordatorios se guardan en este servidor, no en
+   una base de datos permanente.** Si la app se reinicia (mantenimiento, actualizaciones),
+   es posible que pierdas ese historial. No lo uses como tu único registro importante.
 """)
+
+    with st.expander("🔍 Transparencia y metodología (para quien quiera ver el detalle)"):
+        st.markdown("""
+        **Fuentes de datos:** Yahoo Finance (precios, ratios de mercado) cruzado con
+        SEC EDGAR (estados financieros oficiales 10-K, gratuitos y públicos) cuando
+        la empresa reporta en ese formato — las empresas extranjeras (ej. TSM) no
+        aplican, ya que reportan con formularios distintos.
+
+        **Lo que SÍ hace este sistema:**
+        - Organiza análisis técnico + fundamental en un veredicto claro
+        - Calcula tamaño de posición según el riesgo que tú definas
+        - Te avisa si concentras demasiado capital en una sola posición
+        - Registra sus propias señales y te muestra, con el tiempo, qué tan bien le fue
+
+        **Lo que NO hace (y ninguna herramienta debería prometer):**
+        - No predice el precio futuro de ninguna acción
+        - No garantiza ganar dinero ni superar al mercado
+        - El "Score Munger" es una heurística propia, no una fórmula validada
+          estadísticamente contra resultados reales
+        """)
     if st.button("Entendido, continuar a la aplicación", type="primary", use_container_width=True):
         st.session_state["disclaimer_visto"] = True
         st.rerun()
@@ -172,12 +230,33 @@ def obtener_base64_imagen(path):
 
 
 # =============================================================================
+# RUTAS DE ARCHIVOS AISLADAS POR USUARIO (evita que un cliente vea/sobrescriba
+# los datos de otro cuando varios usan la misma app desplegada al mismo tiempo)
+# =============================================================================
+def _id_usuario_actual() -> str:
+    return st.session_state.get("id_usuario", "sin_licencia")
+
+
+def ruta_simulador() -> str:
+    return os.path.join(CARPETA_DATOS_USUARIOS, f"portafolio_{_id_usuario_actual()}.json")
+
+
+def ruta_bitacora() -> str:
+    return os.path.join(CARPETA_DATOS_USUARIOS, f"bitacora_{_id_usuario_actual()}.csv")
+
+
+def ruta_dca() -> str:
+    return os.path.join(CARPETA_DATOS_USUARIOS, f"dca_{_id_usuario_actual()}.json")
+
+
+# =============================================================================
 # FUNCIONES DEL SIMULADOR (PERSISTENCIA DE DATOS)
 # =============================================================================
 def cargar_simulador():
-    if os.path.exists(SIMULADOR_FILE):
+    ruta = ruta_simulador()
+    if os.path.exists(ruta):
         try:
-            with open(SIMULADOR_FILE, "r") as f:
+            with open(ruta, "r") as f:
                 return json.load(f)
         except Exception:
             pass
@@ -185,7 +264,7 @@ def cargar_simulador():
 
 
 def guardar_simulador(data):
-    with open(SIMULADOR_FILE, "w") as f:
+    with open(ruta_simulador(), "w") as f:
         json.dump(data, f, indent=4)
 
 
@@ -194,9 +273,10 @@ def guardar_simulador(data):
 # (Evidencia real sobre el propio semáforo, no una promesa de resultados)
 # =============================================================================
 def cargar_bitacora() -> pd.DataFrame:
-    if os.path.exists(LOG_FILE):
+    ruta = ruta_bitacora()
+    if os.path.exists(ruta):
         try:
-            return pd.read_csv(LOG_FILE)
+            return pd.read_csv(ruta)
         except Exception:
             pass
     return pd.DataFrame(columns=["fecha", "ticker", "señal", "precio"])
@@ -213,7 +293,7 @@ def registrar_señal_bitacora(ticker: str, color: str, precio: float):
     if not ya_existe:
         nueva_fila = pd.DataFrame([{"fecha": fecha_hoy, "ticker": ticker, "señal": color, "precio": precio}])
         df_log = pd.concat([df_log, nueva_fila], ignore_index=True)
-        df_log.to_csv(LOG_FILE, index=False)
+        df_log.to_csv(ruta_bitacora(), index=False)
 
 
 @st.cache_data(ttl=3600, show_spinner=False)
@@ -293,9 +373,10 @@ def evaluar_precision_historial(horizonte_dias: int):
 # RECORDATORIO DE APORTE PERIÓDICO (DCA — Dollar-Cost Averaging)
 # =============================================================================
 def cargar_dca() -> dict:
-    if os.path.exists(DCA_FILE):
+    ruta = ruta_dca()
+    if os.path.exists(ruta):
         try:
-            with open(DCA_FILE, "r") as f:
+            with open(ruta, "r") as f:
                 return json.load(f)
         except Exception:
             pass
@@ -307,7 +388,7 @@ def cargar_dca() -> dict:
 
 
 def guardar_dca(data: dict):
-    with open(DCA_FILE, "w") as f:
+    with open(ruta_dca(), "w") as f:
         json.dump(data, f, indent=4)
 
 
@@ -1296,9 +1377,18 @@ else:
             mcap = inf.get("marketCap", 1.0) or 1.0
             fcf_yield = fcf / mcap if mcap != 0 else 0.0
             peg = inf.get("pegRatio", 0.0) or 0.0
+            fcf_negativo = fcf < 0
 
-            # Metodología sin cambios: Score Munger = ROIC/ROE + Margen + FCF Yield - Deuda
+            # Metodología base sin cambios: ROIC/ROE + Margen + FCF Yield - Deuda.
+            # AJUSTE DE CONSISTENCIA: en el Módulo 1 (Semáforo), FCF negativo
+            # descalifica de inmediato a "rojo" (score 15). Antes, aquí en el
+            # Top 40 solo restaba unos pocos puntos, permitiendo que empresas
+            # con flujo de caja negativo aparecieran con score positivo — una
+            # contradicción real entre módulos. Ahora se aplica el mismo criterio
+            # de severidad: FCF negativo limita el score al mismo techo "rojo".
             score_munger = (roe * 40) + (margen_op * 30) + (fcf_yield * 20) - (min(debt_ebitda, 5) * 2)
+            if fcf_negativo:
+                score_munger = min(score_munger, 15.0)
 
             # Cross-check gratuito y público contra SEC EDGAR (informativo, no altera el score)
             sec_data = cruzar_con_sec(t, mapa_cik_sec)
@@ -1311,6 +1401,7 @@ else:
                 "Empresa": inf.get("shortName", t),
                 "Sector": emp["Sector"],
                 "Foso Económico (Moat)": emp["Moat"],
+                "Alerta": "🔴 FCF Negativo" if fcf_negativo else "",
                 "ROIC/ROE": f"{roe * 100:.1f}%",
                 "Margen Op.": f"{margen_op * 100:.1f}%",
                 "Deuda/EBITDA": f"{debt_ebitda:.2f}x",
